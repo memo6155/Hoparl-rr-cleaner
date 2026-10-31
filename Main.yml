@@ -1,4 +1,4 @@
-name: Ultra Agresif APK Olustur
+name: Maksimum Ses APK Olustur
 
 on:
   push:
@@ -68,8 +68,8 @@ jobs:
                   applicationId "com.temizleyici.ses"
                   minSdk 23
                   targetSdk 34
-                  versionCode 2
-                  versionName "2.0-Hardcore"
+                  versionCode 3
+                  versionName "3.0-MaxDB"
               }
 
               compileOptions {
@@ -86,7 +86,7 @@ jobs:
               <uses-permission android:name="android.permission.VIBRATE" />
 
               <application
-                  android:label="Ahize Temizleyici PRO"
+                  android:label="Ahize Turbo Ses"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                   <activity
                       android:name=".MainActivity"
@@ -110,6 +110,7 @@ jobs:
           import android.media.AudioFormat;
           import android.media.AudioManager;
           import android.media.AudioTrack;
+          import android.media.audiofx.DynamicsProcessing;
           import android.media.audiofx.LoudnessEnhancer;
           import android.os.Build;
           import android.os.Bundle;
@@ -118,22 +119,25 @@ jobs:
           import android.view.Gravity;
           import android.widget.Button;
           import android.widget.LinearLayout;
+          import android.widget.ScrollView;
           import android.widget.SeekBar;
           import android.widget.TextView;
 
           public class MainActivity extends Activity {
-              private static final int MODE_SINE = 0;
-              private static final int MODE_PULSE = 1;
-              private static final int MODE_EXTREME = 2;
+              private static final int MODE_SINE_BOOST = 0;
+              private static final int MODE_EXTREME_BASS_SHOCK = 1;
+              private static final int MODE_MAX_DECIBEL_SIREN = 2;
 
               private volatile boolean isPlaying = false;
               private volatile double currentFreq = 165.0;
-              private volatile int currentMode = MODE_SINE;
+              private volatile int currentGainMb = 3000; // Varsayilan +30 dB (3000 mB)
+              private volatile int currentMode = MODE_SINE_BOOST;
               private Thread audioThread;
               private AudioManager audioManager;
               private Vibrator vibrator;
               private TextView statusText;
               private TextView freqLabel;
+              private TextView gainLabel;
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -141,80 +145,102 @@ jobs:
                   audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
                   vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
+                  ScrollView scrollView = new ScrollView(this);
+                  scrollView.setFillViewport(true);
+                  scrollView.setBackgroundColor(Color.parseColor("#0A0A0A"));
+
                   LinearLayout layout = new LinearLayout(this);
                   layout.setOrientation(LinearLayout.VERTICAL);
                   layout.setGravity(Gravity.CENTER);
-                  layout.setPadding(48, 48, 48, 48);
-                  layout.setBackgroundColor(Color.parseColor("#0D0D0D"));
+                  layout.setPadding(40, 40, 40, 40);
 
                   statusText = new TextView(this);
-                  statusText.setText("Mod secin. Agresif mod sesi otomatik %100 yapar ve +15dB zorlar.");
-                  statusText.setTextSize(16f);
+                  statusText.setText("MAKSIMUM DESIBEL MODU HAZIR\nSes otomatik %100'e kilitlenir ve +45 dB'ye kadar zorlanir.");
+                  statusText.setTextSize(15f);
                   statusText.setTextColor(Color.WHITE);
                   statusText.setGravity(Gravity.CENTER);
-                  statusText.setPadding(0, 0, 0, 40);
+                  statusText.setPadding(0, 0, 0, 32);
 
                   freqLabel = new TextView(this);
-                  freqLabel.setText("Frekans: 165 Hz");
-                  freqLabel.setTextSize(16f);
+                  freqLabel.setText("Manuel Frekans: 165 Hz");
+                  freqLabel.setTextSize(15f);
                   freqLabel.setTextColor(Color.parseColor("#00E676"));
                   freqLabel.setGravity(Gravity.CENTER);
-                  freqLabel.setPadding(0, 0, 0, 16);
 
-                  SeekBar seekBar = new SeekBar(this);
-                  seekBar.setMax(600);
-                  seekBar.setProgress(165);
-                  seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                  SeekBar freqSeek = new SeekBar(this);
+                  freqSeek.setMax(1500);
+                  freqSeek.setProgress(165);
+                  freqSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                       @Override
                       public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
-                          int f = Math.max(50, progress);
+                          int f = Math.max(60, progress);
                           currentFreq = f;
-                          freqLabel.setText("Frekans: " + f + " Hz");
+                          freqLabel.setText("Manuel Frekans: " + f + " Hz");
                       }
                       @Override public void onStartTrackingTouch(SeekBar s) {}
                       @Override public void onStopTrackingTouch(SeekBar s) {}
                   });
 
-                  Button btnEarpiece165 = new Button(this);
-                  btnEarpiece165.setText("Ahize Standart (165 Hz Sinus)");
-                  btnEarpiece165.setOnClickListener(v -> {
-                      seekBar.setProgress(165);
-                      currentMode = MODE_SINE;
-                      startCleaning(true, false);
-                      statusText.setText("Ahize standart temizleniyor (165 Hz)...");
+                  gainLabel = new TextView(this);
+                  gainLabel.setText("Amfi Zorlama (Gain Boost): +30 dB (MAKS)");
+                  gainLabel.setTextSize(15f);
+                  gainLabel.setTextColor(Color.parseColor("#FF5252"));
+                  gainLabel.setGravity(Gravity.CENTER);
+                  gainLabel.setPadding(0, 24, 0, 0);
+
+                  SeekBar gainSeek = new SeekBar(this);
+                  gainSeek.setMax(3000);
+                  gainSeek.setProgress(3000);
+                  gainSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      @Override
+                      public void onProgressChanged(SeekBar s, int progress, boolean fromUser) {
+                          currentGainMb = progress;
+                          gainLabel.setText("Amfi Zorlama (Gain Boost): +" + (progress / 100) + " dB");
+                      }
+                      @Override public void onStartTrackingTouch(SeekBar s) {}
+                      @Override public void onStopTrackingTouch(SeekBar s) {}
                   });
 
-                  Button btnEarpiecePulse = new Button(this);
-                  btnEarpiecePulse.setText("Ahize Darbeli Mod (220 Hz Pulse)");
-                  btnEarpiecePulse.setOnClickListener(v -> {
-                      seekBar.setProgress(220);
-                      currentMode = MODE_PULSE;
-                      startCleaning(true, false);
-                      statusText.setText("Ahize darbeli titresim modu calisiyor...");
-                  });
-
-                  Button btnExtremeEarpiece = new Button(this);
-                  btnExtremeEarpiece.setText("🔥 ULTRA AGRESIF AHIZE (KARE DALGA + 15dB BOOST)");
-                  btnExtremeEarpiece.setBackgroundColor(Color.parseColor("#B71C1C"));
-                  btnExtremeEarpiece.setTextColor(Color.WHITE);
-                  btnExtremeEarpiece.setOnClickListener(v -> {
-                      currentMode = MODE_EXTREME;
+                  Button btnMaxDecibelEarpiece = new Button(this);
+                  btnMaxDecibelEarpiece.setText("🔊 AHIZE MAKSIMUM YUKSEK SES + SOK\n(165Hz Hava Basinci + 950Hz Tiz + 45dB Amfi)");
+                  btnMaxDecibelEarpiece.setBackgroundColor(Color.parseColor("#D50000"));
+                  btnMaxDecibelEarpiece.setTextColor(Color.WHITE);
+                  btnMaxDecibelEarpiece.setOnClickListener(v -> {
+                      currentMode = MODE_MAX_DECIBEL_SIREN;
                       startCleaning(true, true);
-                      statusText.setText("⚠️ ULTRA AGRESIF AHIZE AKTIF!\nKare Dalga + +15dB Boost + Sweep + Motor Titresimi.\n(1 dakikadan fazla araliksiz calistirmayin)");
+                      statusText.setText("🔊 AHIZE MAKSIMUM DESIBEL AKTIF!\n165Hz Bas + 950Hz Yuksek Akustik Basinc + +45dB Overdrive!");
                   });
 
-                  Button btnExtremeSpeaker = new Button(this);
-                  btnExtremeSpeaker.setText("🔥 ULTRA AGRESIF ANA HOPARLOR (KARE DALGA + 15dB)");
-                  btnExtremeSpeaker.setBackgroundColor(Color.parseColor("#E65100"));
-                  btnExtremeSpeaker.setTextColor(Color.WHITE);
-                  btnExtremeSpeaker.setOnClickListener(v -> {
-                      currentMode = MODE_EXTREME;
+                  Button btnMaxDecibelSpeaker = new Button(this);
+                  btnMaxDecibelSpeaker.setText("🔊 ANA HOPARLOR MAKSIMUM YUKSEK SES + SOK\n(Cift Katmanli Kare Dalga + 45dB Amfi)");
+                  btnMaxDecibelSpeaker.setBackgroundColor(Color.parseColor("#FF6D00"));
+                  btnMaxDecibelSpeaker.setTextColor(Color.WHITE);
+                  btnMaxDecibelSpeaker.setOnClickListener(v -> {
+                      currentMode = MODE_MAX_DECIBEL_SIREN;
                       startCleaning(false, true);
-                      statusText.setText("⚠️ ULTRA AGRESIF HOPARLOR AKTIF!\nKare Dalga + +15dB Boost + Otomatik Tarama.");
+                      statusText.setText("🔊 ANA HOPARLOR MAKSIMUM DESIBEL AKTIF!\nKulaginizi hoparlore cok yaklastirmayin!");
+                  });
+
+                  Button btnExtremeBassEarpiece = new Button(this);
+                  btnExtremeBassEarpiece.setText("🔥 AHIZE AGIR TITRESIM TARAMASI (110Hz-450Hz Kare Dalga)");
+                  btnExtremeBassEarpiece.setBackgroundColor(Color.parseColor("#6A1B9A"));
+                  btnExtremeBassEarpiece.setTextColor(Color.WHITE);
+                  btnExtremeBassEarpiece.setOnClickListener(v -> {
+                      currentMode = MODE_EXTREME_BASS_SHOCK;
+                      startCleaning(true, true);
+                      statusText.setText("🔥 Ahize Agir Diyafram Soklamasi (110-450 Hz) Calisiyor...");
+                  });
+
+                  Button btnManualEarpiece = new Button(this);
+                  btnManualEarpiece.setText("Ahize Manuel Frekans (Kaydirici + Kare Dalga Boost)");
+                  btnManualEarpiece.setOnClickListener(v -> {
+                      currentMode = MODE_SINE_BOOST;
+                      startCleaning(true, false);
+                      statusText.setText("Ahize Manuel Mod (" + (int)currentFreq + " Hz) Calisiyor...");
                   });
 
                   Button btnStop = new Button(this);
-                  btnStop.setText("DURDUR");
+                  btnStop.setText("⛔ DURDUR");
                   btnStop.setBackgroundColor(Color.parseColor("#263238"));
                   btnStop.setTextColor(Color.WHITE);
                   btnStop.setOnClickListener(v -> {
@@ -224,28 +250,38 @@ jobs:
 
                   layout.addView(statusText);
                   layout.addView(freqLabel);
-                  layout.addView(seekBar);
-                  layout.addView(btnEarpiece165);
-                  layout.addView(btnEarpiecePulse);
-                  layout.addView(btnExtremeEarpiece);
-                  layout.addView(btnExtremeSpeaker);
+                  layout.addView(freqSeek);
+                  layout.addView(gainLabel);
+                  layout.addView(gainSeek);
+                  layout.addView(btnMaxDecibelEarpiece);
+                  layout.addView(btnMaxDecibelSpeaker);
+                  layout.addView(btnExtremeBassEarpiece);
+                  layout.addView(btnManualEarpiece);
                   layout.addView(btnStop);
 
-                  setContentView(layout);
+                  scrollView.addView(layout);
+                  setContentView(scrollView);
               }
 
-              private void maxOutVolume() {
+              private void lockMaxVolume() {
                   try {
-                      int maxVoice = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
-                      audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVoice, 0);
-                      int maxMusic = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-                      audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusic, 0);
+                      int[] streams = {
+                          AudioManager.STREAM_VOICE_CALL,
+                          AudioManager.STREAM_MUSIC,
+                          AudioManager.STREAM_RING,
+                          AudioManager.STREAM_ALARM,
+                          AudioManager.STREAM_SYSTEM
+                      };
+                      for (int s : streams) {
+                          int max = audioManager.getStreamMaxVolume(s);
+                          audioManager.setStreamVolume(s, max, 0);
+                      }
                   } catch (Exception ignored) {}
               }
 
               private void startVibration() {
                   if (vibrator != null && vibrator.hasVibrator()) {
-                      long[] pattern = {0, 400, 100, 600, 80};
+                      long[] pattern = {0, 500, 80, 700, 80};
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                           vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
                       } else {
@@ -254,11 +290,11 @@ jobs:
                   }
               }
 
-              private void startCleaning(boolean useEarpiece, boolean extremeBoost) {
+              private void startCleaning(boolean useEarpiece, boolean vibrateNow) {
                   stopCleaning();
                   isPlaying = true;
-                  maxOutVolume();
 
+                  // ÖNCE ses yönlendirmesini yap, SONRA sesi %100'e çivile (Android ses düşürmesini engeller)
                   if (useEarpiece) {
                       audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
                       audioManager.setSpeakerphoneOn(false);
@@ -267,7 +303,9 @@ jobs:
                       audioManager.setSpeakerphoneOn(true);
                   }
 
-                  if (extremeBoost) {
+                  lockMaxVolume();
+
+                  if (vibrateNow) {
                       startVibration();
                   }
 
@@ -296,70 +334,123 @@ jobs:
                               .setBufferSizeInBytes(bufferSize)
                               .build();
 
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                          audioTrack.setVolume(AudioTrack.getMaxVolume());
+                      }
+
+                      // 1. Amfi: LoudnessEnhancer (+30 dB'ye kadar zorlama)
                       LoudnessEnhancer enhancer = null;
-                      if (extremeBoost) {
+                      try {
+                          enhancer = new LoudnessEnhancer(audioTrack.getAudioSessionId());
+                          enhancer.setTargetGain(currentGainMb);
+                          enhancer.setEnabled(true);
+                      } catch (Exception ignored) {}
+
+                      // 2. Amfi: DynamicsProcessing (+15 dB ekstra donanimsal on-kazanc)
+                      DynamicsProcessing dp = null;
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                           try {
-                              enhancer = new LoudnessEnhancer(audioTrack.getAudioSessionId());
-                              enhancer.setTargetGain(1500); // +15 dB donanimsal zorlama
-                              enhancer.setEnabled(true);
+                              DynamicsProcessing.Config config = new DynamicsProcessing.Config.Builder(
+                                      DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                                      1, true, 1, false, 0, false, 0, true
+                              ).build();
+                              dp = new DynamicsProcessing(0, audioTrack.getAudioSessionId(), config);
+                              dp.setInputGainAllChannelsTo(15.0f);
+                              dp.setEnabled(true);
                           } catch (Exception ignored) {}
                       }
 
                       short[] buffer = new short[bufferSize];
-                      double angle = 0.0;
+                      double angleLow = 0.0;
+                      double angleHigh = 0.0;
                       long sampleCount = 0;
-                      double sweepFreq = 110.0;
-                      double sweepDir = 0.008;
+                      double sweepFreq = 120.0;
+                      double sweepDir = 0.015;
+                      int lastGain = currentGainMb;
+                      int loopCounter = 0;
 
                       audioTrack.play();
 
                       while (isPlaying) {
+                          loopCounter++;
+                          // Her yarim saniyede bir sesin %100'de kaldigini garantiye al
+                          if (loopCounter % 25 == 0) {
+                              lockMaxVolume();
+                              if (enhancer != null && lastGain != currentGainMb) {
+                                  try {
+                                      enhancer.setTargetGain(currentGainMb);
+                                      lastGain = currentGainMb;
+                                  } catch (Exception ignored) {}
+                              }
+                          }
+
                           for (int i = 0; i < buffer.length; i++) {
                               sampleCount++;
-                              double activeFreq = currentFreq;
 
-                              if (currentMode == MODE_EXTREME) {
-                                  // 110 Hz ile 340 Hz arasi surekli tarama (Sweep)
-                                  sweepFreq += sweepDir;
-                                  if (sweepFreq >= 340.0) sweepDir = -0.008;
-                                  if (sweepFreq <= 110.0) sweepDir = 0.008;
-                                  activeFreq = sweepFreq;
-                              }
+                              if (currentMode == MODE_MAX_DECIBEL_SIREN) {
+                                  // Cift katmanli hibrit sok:
+                                  // 165 Hz diyaframi maksimum iterken 750-1350 Hz rezonans dalgasi kulagi sagir edecek siddette basinc uretir
+                                  sweepFreq += sweepDir * 2.5;
+                                  if (sweepFreq >= 1350.0) sweepDir = -0.02;
+                                  if (sweepFreq <= 750.0) sweepDir = 0.02;
 
-                              double increment = 2.0 * Math.PI * activeFreq / sampleRate;
+                                  double incLow = 2.0 * Math.PI * 165.0 / sampleRate;
+                                  double incHigh = 2.0 * Math.PI * sweepFreq / sampleRate;
 
-                              if (currentMode == MODE_PULSE) {
-                                  boolean mute = ((sampleCount / (sampleRate / 5)) % 2 == 1);
-                                  buffer[i] = mute ? 0 : (short) (Math.sin(angle) * Short.MAX_VALUE);
-                              } else if (currentMode == MODE_EXTREME) {
-                                  // Strobe soklama: Her 180ms'de 30ms sert kesinti + Kare Dalga (Square Wave)
-                                  long cycle = sampleCount % (sampleRate / 5);
-                                  boolean shockMute = cycle > (sampleRate / 6);
-                                  if (shockMute) {
+                                  angleLow += incLow;
+                                  angleHigh += incHigh;
+                                  if (angleLow > 2.0 * Math.PI) angleLow -= 2.0 * Math.PI;
+                                  if (angleHigh > 2.0 * Math.PI) angleHigh -= 2.0 * Math.PI;
+
+                                  // Strobe darbesi (her 250ms'de 25ms sert vakum kesintisi)
+                                  long cycle = sampleCount % (sampleRate / 4);
+                                  if (cycle > (sampleRate / 4) - (sampleRate / 40)) {
                                       buffer[i] = 0;
                                   } else {
-                                      // Kare dalga diyaframi maksimum uclara sertce vurur
-                                      buffer[i] = (Math.sin(angle) >= 0.0) ? Short.MAX_VALUE : Short.MIN_VALUE;
+                                      double combined = (Math.sin(angleLow) * 0.55) + (Math.sin(angleHigh) * 0.45);
+                                      // Sert Kare Dalga (Hard-Clipped Square Wave) = Maksimum akustik enerji
+                                      buffer[i] = (combined >= 0.0) ? Short.MAX_VALUE : Short.MIN_VALUE;
                                   }
-                              } else {
-                                  buffer[i] = (short) (Math.sin(angle) * Short.MAX_VALUE);
-                              }
 
-                              angle += increment;
-                              if (angle > 2.0 * Math.PI) {
-                                  angle -= 2.0 * Math.PI;
+                              } else if (currentMode == MODE_EXTREME_BASS_SHOCK) {
+                                  sweepFreq += sweepDir;
+                                  if (sweepFreq >= 450.0) sweepDir = -0.012;
+                                  if (sweepFreq <= 110.0) sweepDir = 0.012;
+
+                                  double inc = 2.0 * Math.PI * sweepFreq / sampleRate;
+                                  angleLow += inc;
+                                  if (angleLow > 2.0 * Math.PI) angleLow -= 2.0 * Math.PI;
+
+                                  long cycle = sampleCount % (sampleRate / 5);
+                                  if (cycle > (sampleRate / 6)) {
+                                      buffer[i] = 0;
+                                  } else {
+                                      buffer[i] = (Math.sin(angleLow) >= 0.0) ? Short.MAX_VALUE : Short.MIN_VALUE;
+                                  }
+
+                              } else {
+                                  // Manuel Modda da maksimum ses icin kare dalga
+                                  double inc = 2.0 * Math.PI * currentFreq / sampleRate;
+                                  angleLow += inc;
+                                  if (angleLow > 2.0 * Math.PI) angleLow -= 2.0 * Math.PI;
+                                  buffer[i] = (Math.sin(angleLow) >= 0.0) ? Short.MAX_VALUE : Short.MIN_VALUE;
                               }
                           }
                           audioTrack.write(buffer, 0, buffer.length);
                       }
 
+                      if (dp != null) {
+                          try {
+                              dp.setEnabled(false);
+                              dp.release();
+                          } catch (Exception ignored) {}
+                      }
                       if (enhancer != null) {
                           try {
                               enhancer.setEnabled(false);
                               enhancer.release();
                           } catch (Exception ignored) {}
                       }
-
                       try {
                           audioTrack.stop();
                       } catch (Exception ignored) {}
@@ -399,5 +490,5 @@ jobs:
       - name: APK Dosyasini Yukle
         uses: actions/upload-artifact@v4
         with:
-          name: Ahize-Temizleyici-PRO-APK
+          name: Ahize-Turbo-Ses-APK
           path: app/build/outputs/apk/debug/app-debug.apk
