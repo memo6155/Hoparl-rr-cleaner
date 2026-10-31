@@ -1,4 +1,4 @@
-name: Tek Dosyadan APK Olustur
+name: Ultra Agresif APK Olustur
 
 on:
   push:
@@ -68,8 +68,8 @@ jobs:
                   applicationId "com.temizleyici.ses"
                   minSdk 23
                   targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
+                  versionCode 2
+                  versionName "2.0-Hardcore"
               }
 
               compileOptions {
@@ -80,13 +80,13 @@ jobs:
           EOF
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+              <uses-permission android:name="android.permission.VIBRATE" />
 
               <application
-                  android:label="Ahize Temizleyici"
+                  android:label="Ahize Temizleyici PRO"
                   android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                   <activity
                       android:name=".MainActivity"
@@ -110,7 +110,11 @@ jobs:
           import android.media.AudioFormat;
           import android.media.AudioManager;
           import android.media.AudioTrack;
+          import android.media.audiofx.LoudnessEnhancer;
+          import android.os.Build;
           import android.os.Bundle;
+          import android.os.VibrationEffect;
+          import android.os.Vibrator;
           import android.view.Gravity;
           import android.widget.Button;
           import android.widget.LinearLayout;
@@ -118,11 +122,16 @@ jobs:
           import android.widget.TextView;
 
           public class MainActivity extends Activity {
+              private static final int MODE_SINE = 0;
+              private static final int MODE_PULSE = 1;
+              private static final int MODE_EXTREME = 2;
+
               private volatile boolean isPlaying = false;
               private volatile double currentFreq = 165.0;
-              private volatile boolean pulseMode = false;
+              private volatile int currentMode = MODE_SINE;
               private Thread audioThread;
               private AudioManager audioManager;
+              private Vibrator vibrator;
               private TextView statusText;
               private TextView freqLabel;
 
@@ -130,19 +139,20 @@ jobs:
               protected void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
                   audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+                  vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
                   LinearLayout layout = new LinearLayout(this);
                   layout.setOrientation(LinearLayout.VERTICAL);
                   layout.setGravity(Gravity.CENTER);
                   layout.setPadding(48, 48, 48, 48);
-                  layout.setBackgroundColor(Color.parseColor("#121212"));
+                  layout.setBackgroundColor(Color.parseColor("#0D0D0D"));
 
                   statusText = new TextView(this);
-                  statusText.setText("Ses seviyesini sonuna kadar acin ve mod secin.");
-                  statusText.setTextSize(17f);
+                  statusText.setText("Mod secin. Agresif mod sesi otomatik %100 yapar ve +15dB zorlar.");
+                  statusText.setTextSize(16f);
                   statusText.setTextColor(Color.WHITE);
                   statusText.setGravity(Gravity.CENTER);
-                  statusText.setPadding(0, 0, 0, 48);
+                  statusText.setPadding(0, 0, 0, 40);
 
                   freqLabel = new TextView(this);
                   freqLabel.setText("Frekans: 165 Hz");
@@ -152,7 +162,7 @@ jobs:
                   freqLabel.setPadding(0, 0, 0, 16);
 
                   SeekBar seekBar = new SeekBar(this);
-                  seekBar.setMax(500);
+                  seekBar.setMax(600);
                   seekBar.setProgress(165);
                   seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                       @Override
@@ -166,34 +176,47 @@ jobs:
                   });
 
                   Button btnEarpiece165 = new Button(this);
-                  btnEarpiece165.setText("Ahizeyi Temizle (165 Hz - Sabit)");
+                  btnEarpiece165.setText("Ahize Standart (165 Hz Sinus)");
                   btnEarpiece165.setOnClickListener(v -> {
                       seekBar.setProgress(165);
-                      pulseMode = false;
-                      startCleaning(true);
-                      statusText.setText("Ahize temizleniyor (165 Hz)...\nTelefonu ekran asagi bakacak sekilde tutun.");
+                      currentMode = MODE_SINE;
+                      startCleaning(true, false);
+                      statusText.setText("Ahize standart temizleniyor (165 Hz)...");
                   });
 
                   Button btnEarpiecePulse = new Button(this);
-                  btnEarpiecePulse.setText("Ahize Darbeli Mod (220 Hz - Toz Sokucu)");
+                  btnEarpiecePulse.setText("Ahize Darbeli Mod (220 Hz Pulse)");
                   btnEarpiecePulse.setOnClickListener(v -> {
                       seekBar.setProgress(220);
-                      pulseMode = true;
-                      startCleaning(true);
+                      currentMode = MODE_PULSE;
+                      startCleaning(true, false);
                       statusText.setText("Ahize darbeli titresim modu calisiyor...");
                   });
 
-                  Button btnSpeaker = new Button(this);
-                  btnSpeaker.setText("Ana Hoparloru Temizle (165 Hz)");
-                  btnSpeaker.setOnClickListener(v -> {
-                      seekBar.setProgress(165);
-                      pulseMode = false;
-                      startCleaning(false);
-                      statusText.setText("Hoparlor temizleniyor (165 Hz)...");
+                  Button btnExtremeEarpiece = new Button(this);
+                  btnExtremeEarpiece.setText("🔥 ULTRA AGRESIF AHIZE (KARE DALGA + 15dB BOOST)");
+                  btnExtremeEarpiece.setBackgroundColor(Color.parseColor("#B71C1C"));
+                  btnExtremeEarpiece.setTextColor(Color.WHITE);
+                  btnExtremeEarpiece.setOnClickListener(v -> {
+                      currentMode = MODE_EXTREME;
+                      startCleaning(true, true);
+                      statusText.setText("⚠️ ULTRA AGRESIF AHIZE AKTIF!\nKare Dalga + +15dB Boost + Sweep + Motor Titresimi.\n(1 dakikadan fazla araliksiz calistirmayin)");
+                  });
+
+                  Button btnExtremeSpeaker = new Button(this);
+                  btnExtremeSpeaker.setText("🔥 ULTRA AGRESIF ANA HOPARLOR (KARE DALGA + 15dB)");
+                  btnExtremeSpeaker.setBackgroundColor(Color.parseColor("#E65100"));
+                  btnExtremeSpeaker.setTextColor(Color.WHITE);
+                  btnExtremeSpeaker.setOnClickListener(v -> {
+                      currentMode = MODE_EXTREME;
+                      startCleaning(false, true);
+                      statusText.setText("⚠️ ULTRA AGRESIF HOPARLOR AKTIF!\nKare Dalga + +15dB Boost + Otomatik Tarama.");
                   });
 
                   Button btnStop = new Button(this);
                   btnStop.setText("DURDUR");
+                  btnStop.setBackgroundColor(Color.parseColor("#263238"));
+                  btnStop.setTextColor(Color.WHITE);
                   btnStop.setOnClickListener(v -> {
                       stopCleaning();
                       statusText.setText("Temizleme durduruldu.");
@@ -204,15 +227,37 @@ jobs:
                   layout.addView(seekBar);
                   layout.addView(btnEarpiece165);
                   layout.addView(btnEarpiecePulse);
-                  layout.addView(btnSpeaker);
+                  layout.addView(btnExtremeEarpiece);
+                  layout.addView(btnExtremeSpeaker);
                   layout.addView(btnStop);
 
                   setContentView(layout);
               }
 
-              private void startCleaning(boolean useEarpiece) {
+              private void maxOutVolume() {
+                  try {
+                      int maxVoice = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+                      audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVoice, 0);
+                      int maxMusic = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                      audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusic, 0);
+                  } catch (Exception ignored) {}
+              }
+
+              private void startVibration() {
+                  if (vibrator != null && vibrator.hasVibrator()) {
+                      long[] pattern = {0, 400, 100, 600, 80};
+                      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                          vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+                      } else {
+                          vibrator.vibrate(pattern, 0);
+                      }
+                  }
+              }
+
+              private void startCleaning(boolean useEarpiece, boolean extremeBoost) {
                   stopCleaning();
                   isPlaying = true;
+                  maxOutVolume();
 
                   if (useEarpiece) {
                       audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
@@ -220,6 +265,10 @@ jobs:
                   } else {
                       audioManager.setMode(AudioManager.MODE_NORMAL);
                       audioManager.setSpeakerphoneOn(true);
+                  }
+
+                  if (extremeBoost) {
+                      startVibration();
                   }
 
                   audioThread = new Thread(() -> {
@@ -247,29 +296,68 @@ jobs:
                               .setBufferSizeInBytes(bufferSize)
                               .build();
 
+                      LoudnessEnhancer enhancer = null;
+                      if (extremeBoost) {
+                          try {
+                              enhancer = new LoudnessEnhancer(audioTrack.getAudioSessionId());
+                              enhancer.setTargetGain(1500); // +15 dB donanimsal zorlama
+                              enhancer.setEnabled(true);
+                          } catch (Exception ignored) {}
+                      }
+
                       short[] buffer = new short[bufferSize];
                       double angle = 0.0;
                       long sampleCount = 0;
+                      double sweepFreq = 110.0;
+                      double sweepDir = 0.008;
 
                       audioTrack.play();
 
                       while (isPlaying) {
-                          double freq = currentFreq;
-                          double increment = 2.0 * Math.PI * freq / sampleRate;
                           for (int i = 0; i < buffer.length; i++) {
                               sampleCount++;
-                              boolean mute = pulseMode && ((sampleCount / (sampleRate / 4)) % 2 == 1);
-                              if (mute) {
-                                  buffer[i] = 0;
+                              double activeFreq = currentFreq;
+
+                              if (currentMode == MODE_EXTREME) {
+                                  // 110 Hz ile 340 Hz arasi surekli tarama (Sweep)
+                                  sweepFreq += sweepDir;
+                                  if (sweepFreq >= 340.0) sweepDir = -0.008;
+                                  if (sweepFreq <= 110.0) sweepDir = 0.008;
+                                  activeFreq = sweepFreq;
+                              }
+
+                              double increment = 2.0 * Math.PI * activeFreq / sampleRate;
+
+                              if (currentMode == MODE_PULSE) {
+                                  boolean mute = ((sampleCount / (sampleRate / 5)) % 2 == 1);
+                                  buffer[i] = mute ? 0 : (short) (Math.sin(angle) * Short.MAX_VALUE);
+                              } else if (currentMode == MODE_EXTREME) {
+                                  // Strobe soklama: Her 180ms'de 30ms sert kesinti + Kare Dalga (Square Wave)
+                                  long cycle = sampleCount % (sampleRate / 5);
+                                  boolean shockMute = cycle > (sampleRate / 6);
+                                  if (shockMute) {
+                                      buffer[i] = 0;
+                                  } else {
+                                      // Kare dalga diyaframi maksimum uclara sertce vurur
+                                      buffer[i] = (Math.sin(angle) >= 0.0) ? Short.MAX_VALUE : Short.MIN_VALUE;
+                                  }
                               } else {
                                   buffer[i] = (short) (Math.sin(angle) * Short.MAX_VALUE);
                               }
+
                               angle += increment;
                               if (angle > 2.0 * Math.PI) {
                                   angle -= 2.0 * Math.PI;
                               }
                           }
                           audioTrack.write(buffer, 0, buffer.length);
+                      }
+
+                      if (enhancer != null) {
+                          try {
+                              enhancer.setEnabled(false);
+                              enhancer.release();
+                          } catch (Exception ignored) {}
                       }
 
                       try {
@@ -282,6 +370,11 @@ jobs:
 
               private void stopCleaning() {
                   isPlaying = false;
+                  if (vibrator != null) {
+                      try {
+                          vibrator.cancel();
+                      } catch (Exception ignored) {}
+                  }
                   if (audioThread != null) {
                       try {
                           audioThread.join(400);
@@ -306,5 +399,5 @@ jobs:
       - name: APK Dosyasini Yukle
         uses: actions/upload-artifact@v4
         with:
-          name: Ahize-Temizleyici-APK
+          name: Ahize-Temizleyici-PRO-APK
           path: app/build/outputs/apk/debug/app-debug.apk
